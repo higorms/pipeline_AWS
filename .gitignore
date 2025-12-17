@@ -1,14 +1,6 @@
 /.venv
 .env
-src/application/__pycache__/__init__.cpython-313.pyc
-src/application/use_cases/__pycache__/__init__.cpython-313.pyc
-src/application/use_cases/__pycache__/extract_b3_data.cpython-313.pyc
-src/domain/__pycache__/__init__.cpython-313.pyc
-src/domain/repositories/__pycache__/__init__.cpython-313.pyc
 .gitignore
-src/domain/repositories/__pycache__/data_source_repository.cpython-313.pyc
-src/infrastructure/__pycache__/__init__.cpython-313.pyc
-src/infrastructure/data_sources/__pycache__/__init__.cpython-313.pyc
-src/infrastructure/data_sources/__pycache__/yfinance_data_source.cpython-313.pyc
 requirements.txt
 test_extraction.py
+__pycache__/

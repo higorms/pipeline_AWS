@@ -7,7 +7,7 @@ from botocore.exceptions import ClientError, NoCredentialsError
 import io
 from typing import Any
 
-from ...domain.repositories.storage_repository import StorageRepository
+from domain.repositories.storage_repository import StorageRepository
 
 
 class S3StorageRepository(StorageRepository):
@@ -70,7 +70,7 @@ class S3StorageRepository(StorageRepository):
             buffer = io.BytesIO()
 
             if format == 'parquet':
-                data.to_parquet(buffer, index=False, engine='pyarrow')
+                data.to_parquet(buffer, index=False, engine='fastparquet')
             elif format == 'csv':
                 data.to_csv(buffer, index=False)
             else:
