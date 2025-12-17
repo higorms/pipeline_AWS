@@ -4,7 +4,7 @@ Contém a lógica de negócio da aplicação.
 """
 import pandas as pd
 
-from ...domain.repositories.storage_repository import StorageRepository
+from domain.repositories.storage_repository import StorageRepository
 
 
 class UploadParquetToS3UseCase:
