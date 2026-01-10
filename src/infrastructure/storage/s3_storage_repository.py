@@ -2,12 +2,15 @@
 Implementação concreta do repositório de armazenamento usando AWS S3.
 Camada de infraestrutura.
 """
+import logging
 import boto3
 from botocore.exceptions import ClientError, NoCredentialsError
 import io
 from typing import Any
 
 from domain.repositories.storage_repository import StorageRepository
+
+logger = logging.getLogger(__name__)
 
 
 class S3StorageRepository(StorageRepository):
@@ -64,7 +67,7 @@ class S3StorageRepository(StorageRepository):
             True se sucesso, False caso contrário
         """
         try:
-            print(f"📤 Enviando dados para: s3://{bucket_name}/{s3_key}")
+            logger.debug(f"Upload iniciado: s3://{bucket_name}/{s3_key}")
 
             # Converte DataFrame para bytes
             buffer = io.BytesIO()
@@ -87,14 +90,13 @@ class S3StorageRepository(StorageRepository):
                 ServerSideEncryption='AES256'
             )
 
-            print("✓ Dados enviados com sucesso!")
+            logger.debug(f"Upload concluído: {s3_key}")
             return True
 
         except ClientError as e:
-            print(f"❌ Erro AWS: {e.response['Error']['Code']}")
-            print(f"   Mensagem: {e.response['Error']['Message']}")
+            logger.error(f"Erro AWS ({e.response['Error']['Code']}): {e.response['Error']['Message']}")
             return False
 
         except Exception as e:
-            print(f"❌ Erro inesperado: {str(e)}")
+            logger.error(f"Erro inesperado no upload: {str(e)}")
             return False
