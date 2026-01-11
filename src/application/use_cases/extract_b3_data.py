@@ -1,11 +1,14 @@
 """
 Use Case: Extração de dados da B3.
 """
+import logging
 from datetime import date
 from typing import List
 import pandas as pd
 
 from domain.repositories.data_source_repository import DataSourceRepository
+
+logger = logging.getLogger(__name__)
 
 
 class ExtractB3DataUseCase:
@@ -55,13 +58,10 @@ class ExtractB3DataUseCase:
         if start_date > end_date:
             raise ValueError("Data inicial não pode ser maior que data final")
 
-        print(f"\n📥 Iniciando extração de {len(symbols)} símbolos...")
-        print(f"   Período: {start_date} até {end_date}")
+        logger.info(f"Extraindo {len(symbols)} símbolos ({start_date} a {end_date})")
 
         df = self.data_source.extract_daily_data(symbols, start_date, end_date)
 
-        print(f"\n✓ Extraídos {len(df)} registros no total")
-        print(f"   Datas únicas: {df['date'].nunique()}")
-        print(f"   Símbolos únicos: {df['symbol'].nunique()}")
+        logger.info(f"Extração concluída: {len(df)} registros | {df['date'].nunique()} datas | {df['symbol'].nunique()} símbolos")
 
         return df
