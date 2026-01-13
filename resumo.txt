@@ -1,0 +1,76 @@
+1. Visão Geral
+Este projeto implementa um pipeline de Engenharia de Dados serverless na AWS, projetado para processar dados históricos de ações da B3. O objetivo é ingerir dados brutos, calcular indicadores técnicos (Média Móvel de 7 dias e Volume Acumulado) e disponibilizar os dados refinados para consulta analítica via SQL, garantindo baixo custo e alta escalabilidade.
+
+O fluxo é orientado a eventos: assim que um novo arquivo é depositado no Data Lake, o processamento inicia automaticamente, sem necessidade de agendamento fixo (cron) ou servidores ligados o tempo todo.
+
+2. Arquitetura da Solução
+O fluxo de dados segue as seguintes etapas: Scraper (Origem) → S3 Raw (Ingestão) → Lambda (Gatilho) → AWS Glue (Processamento) → S3 Refined (Armazenamento) → Athena (Consumo)
+
+3. Detalhamento das Etapas
+Camada 1: Ingestão e Organização (Raw Layer)
+Armazenamento: Os dados são armazenados no Amazon S3 (fiap-mlet-finance).
+
+Formato: Arquivos Parquet (colunar, comprimido e eficiente).
+
+Estratégia de Particionamento: Utilizamos o padrão Hive Partitioning para organizar os dados por data de ingestão.
+
+Estrutura: s3://.../raw/year=YYYY/month=MM/day=DD/arquivo.parquet
+
+Benefício: Isso permite que os processos seguintes saibam exatamente onde procurar os dados, otimizando a leitura e reduzindo custos.
+
+Camada 2: Orquestração Orientada a Eventos (Trigger)
+Serviço: AWS Lambda.
+
+Gatilho (Trigger): Configuramos um evento s3:ObjectCreated:Put. Assim que um arquivo cai na pasta raw/, o S3 "avisa" a Lambda instantaneamente.
+
+Lógica de Orquestração:
+
+A Lambda recebe o evento contendo a chave (caminho) do arquivo novo.
+
+Utiliza Regex para extrair a data da estrutura de pastas (Ano, Mês, Dia).
+
+Aciona o Job do AWS Glue (via SDK boto3), passando a data extraída como argumento --DATA_PROCESSAMENTO.
+
+Benefício: Elimina a necessidade de polling (ficar verificando se tem arquivo novo) e garante processamento em tempo real (near real-time).
+
+Camada 3: Processamento e Transformação (ETL)
+Serviço: AWS Glue (Python Shell).
+
+Engine: Python 3.9 com biblioteca Pandas e AWS SDK for Pandas (awswrangler). Optamos por Python Shell em vez de Spark por ser mais rápido e barato para o volume de dados atual.
+
+Lógica de Negócio Inteligente:
+
+Leitura Janelada: O script não lê apenas o arquivo do dia. Ele calcula dinamicamente os caminhos dos últimos 7 dias (D-6 até D) baseados na data do evento. Isso é crucial para o cálculo da média móvel.
+
+Normalização de Tipos: Conversão robusta da coluna de data para datetime64[ns] com normalização (remoção de horas), garantindo ordenação temporal correta.
+
+Cálculo de Indicadores:
+
+Média Móvel 7d: Utiliza rolling(window=7) agrupado por Ticker (Ação).
+
+Volume Acumulado: Utiliza cumsum() agrupado por Ticker.
+
+Filtro de Output (Idempotência): Após o cálculo, o script identifica a data mais recente presente nos dados e descarta o histórico antigo da memória. Apenas os dados processados do dia atual são mantidos para gravação.
+
+Camada 4: Armazenamento Refinado e Catalogação
+Destino: Pasta s3://.../refined/ no mesmo bucket.
+
+Catalogação Automática: Utilizamos o awswrangler para gravar o arquivo e, simultaneamente, registrar os metadados no AWS Glue Data Catalog.
+
+Particionamento de Saída: Os dados refinados são particionados por data_pregao e codigo_acao.
+
+Benefício: A tabela stocks_resume é criada/atualizada automaticamente, sem necessidade de rodar comandos CREATE TABLE manuais.
+
+Camada 5: Consumo e Analytics
+Serviço: Amazon Athena.
+
+Interface: SQL (Presto/Trino).
+
+Uso: O analista pode executar queries SQL diretamente sobre os arquivos no S3, filtrando por data ou ativo, aproveitando as partições criadas para respostas em milissegundos.
+
+4. Destaques Técnicos e Decisões de Design
+Custo-Eficiência: O uso de Python Shell (0.0625 DPU) no Glue é drasticamente mais barato que um cluster Spark para essa volumetria, mantendo a performance alta (tempo de execução < 1 min).
+
+Robustez de Datas: O pipeline trata o cenário comum do mercado financeiro onde o processamento ocorre em D+1 (ex: processar na segunda-feira os dados de sexta). A lógica de filtro baseada no max(data) do arquivo garante que o dado correto seja salvo, independentemente da data da pasta.
+
+Segurança: O acesso entre serviços é gerido estritamente via IAM Roles, seguindo o princípio do menor privilégio (Lambda só pode iniciar o Job; Glue só acessa o Bucket específico e logs).

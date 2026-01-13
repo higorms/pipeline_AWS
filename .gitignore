@@ -1,0 +1,6 @@
+/.venv
+.env
+.gitignore
+requirements.txt
+test_extraction.py
+__pycache__/
